@@ -40,7 +40,7 @@ class Assistant:
         self.lock = asyncio.Lock()  # nur ein Lauf auf dem Voice-Thread, inkl. Sprachausgabe
         self.user_idle = asyncio.Event()  # gelöscht, solange der Nutzer aufnimmt
         self.user_idle.set()
-        self.speaking = False  # Mikrofon ist stumm, solange der Assistent spricht
+        self.on_speaking = lambda speaking: None  # listen() schaltet damit das Mikrofon stumm
         self.tasks: dict[str, dict] = {}  # Name -> status, runner, thread, ...
 
     # --- Gespräch -----------------------------------------------------------------------
@@ -76,11 +76,11 @@ class Assistant:
                 spoken.append(sentence)
                 yield sentence
 
-        self.speaking = True
+        self.on_speaking(True)
         try:
             await self.tts.speak(spoken_sentences())
         finally:
-            self.speaking = False
+            self.on_speaking(False)
         return " ".join(spoken)
 
     # --- Tasks --------------------------------------------------------------------------

@@ -9,21 +9,21 @@ from dotenv import load_dotenv
 
 from .agents import make_model
 from .assistant import Assistant
-from .audio import ConsoleTTS, OpenAITTS, listen
+from .audio import ConsoleTTS, PiperTTS, listen
 
 
-async def main(no_audio: bool, debug: bool) -> None:
-    voice_spec = os.getenv("VOICE_MODEL", "ollama:qwen3:8b")
-    task_spec = os.getenv("TASK_MODEL", "ollama:qwen3:8b")
+async def main(no_audio: bool) -> None:
+    voice_spec = os.getenv("VOICE_MODEL", "ollama:qwen3:4b")
+    task_spec = os.getenv("TASK_MODEL", "ollama:qwen3:4b")
     assistant = Assistant(
         make_model(voice_spec),
         make_model(task_spec, thinking=True),
-        ConsoleTTS() if no_audio else OpenAITTS(),
+        ConsoleTTS() if no_audio else PiperTTS(),
         provider=voice_spec.split(":")[0],
     )
     try:
         if not no_audio:
-            await listen(assistant, debug)
+            await listen(assistant)
         while True:  # Textmodus
             text = (await asyncio.to_thread(input, "> ")).strip()
             if text:
@@ -37,13 +37,11 @@ async def main(no_audio: bool, debug: bool) -> None:
 def run() -> None:
     load_dotenv()
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(name)-17s %(message)s", datefmt="%H:%M:%S")
-    for noisy in ("httpx", "openai", "websockets"):
+    for noisy in ("httpx", "faster_whisper"):
         logging.getLogger(noisy).setLevel(logging.WARNING)
     parser = argparse.ArgumentParser(description="Sprachassistent mit Voice- und Task-Agent")
     parser.add_argument("--no-audio", action="store_true", help="Text tippen statt sprechen, Ausgabe nur auf der Konsole")
-    parser.add_argument("--debug", action="store_true", help="Mikrofon-Pegel und alle Realtime-Events anzeigen")
-    args = parser.parse_args()
-    asyncio.run(main(args.no_audio, args.debug))
+    asyncio.run(main(parser.parse_args().no_audio))
 
 
 if __name__ == "__main__":

@@ -6,22 +6,31 @@ Sprachassistent aus zwei Agenten in einem Prozess:
 - **Task-Agent** (`create_deep_agent`, Ollama): erledigt längere Aufgaben im Hintergrund
   (bisher nur Dummy-Tools `slow_work` und `dummy_action`).
 
-Man redet einfach drauflos: Das Mikrofon hört dauerhaft zu, die OpenAI Realtime API
-transkribiert live und erkennt Sprechpausen. Die Antwort wird satzweise per OpenAI-TTS vorgelesen.
+Man redet einfach drauflos, alles läuft lokal und kostenlos:
 
-## Start
+- **Spracherkennung:** RealtimeSTT mit faster-whisper. Es erkennt Sprechpausen, zeigt live mit,
+  was es versteht, und liefert nach der Pause den fertigen Satz.
+- **Agenten:** Ollama.
+- **Sprachausgabe:** Piper mit deutscher Stimme, satzweise, damit die Antwort früh beginnt.
+
+## Start (macOS)
 
 ```bash
-ollama pull qwen3:8b
-cp .env.example .env            # OPENAI_API_KEY eintragen
-uv sync
+brew install portaudio          # für das Mikrofon (PyAudio)
+ollama pull qwen3:4b
+cp .env.example .env
+uv sync                         # Python 3.12, RealtimeSTT unterstützt noch kein 3.13
 uv run voice-assistant          # sprechen
 uv run voice-assistant --no-audio   # tippen statt sprechen
 uv run pytest
 ```
 
-Für das Mikrofon braucht es PortAudio (`apt install libportaudio2` bzw. `brew install portaudio`).
-Ohne Kopfhörer wird das Mikrofon stummgeschaltet, solange der Assistent spricht.
+Beim ersten Start werden die Whisper-Modelle und die Piper-Stimme heruntergeladen. Das Terminal
+braucht die Mikrofon-Berechtigung (Systemeinstellungen → Datenschutz & Sicherheit → Mikrofon).
+Solange der Assistent spricht, ist das Mikrofon stumm, damit er sich nicht selbst hört.
+
+Speicher auf einem 16-GB-Mac, grob: `qwen3:4b` mit 16k Kontext ca. 5 GB, Whisper `small` und
+`tiny` ca. 1 GB, Piper unter 100 MB.
 
 ## Dateien
 
@@ -29,7 +38,7 @@ Ohne Kopfhörer wird das Mikrofon stummgeschaltet, solange der Assistent spricht
 |----------------|----------------------------------------------------------------------|
 | `agents.py`    | Prompts, Dummy-Tools, Modellauswahl, Erzeugung beider Agenten        |
 | `assistant.py` | Gespräch, Hintergrund-Tasks und die Kommunikation zwischen beiden    |
-| `audio.py`     | Live-Transkription, TTS, Zerlegung in Sätze                          |
+| `audio.py`     | Live-Transkription (RealtimeSTT), Sprachausgabe (Piper), Satz-Splitter |
 | `main.py`      | Start                                                                |
 
 ## Wie die Agenten miteinander reden

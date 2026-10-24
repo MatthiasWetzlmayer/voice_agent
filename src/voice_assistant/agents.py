@@ -54,8 +54,10 @@ def make_model(spec: str, thinking: bool = False):
         from langchain_ollama import ChatOllama
 
         # reasoning explizit setzen, sonst landen <think>-Blöcke im vorgelesenen Text.
-        # num_ctx hochsetzen, sonst schneidet Ollama den langen DeepAgent-Prompt ab.
-        return ChatOllama(model=spec.removeprefix("ollama:"), reasoning=thinking, num_ctx=32768)
+        # num_ctx: Ollamas Standard ist zu klein für den DeepAgent-Prompt (ca. 3.500 Tokens plus
+        # Verlauf). Für beide Agenten gleich lassen, sonst lädt Ollama das Modell bei jedem
+        # Wechsel neu.
+        return ChatOllama(model=spec.removeprefix("ollama:"), reasoning=thinking, num_ctx=16384)
     return init_chat_model(spec)
 
 
