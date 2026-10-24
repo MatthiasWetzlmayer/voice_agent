@@ -4,6 +4,7 @@ import argparse
 import asyncio
 import logging
 import os
+import signal
 
 from dotenv import load_dotenv
 
@@ -28,9 +29,11 @@ async def main(no_audio: bool) -> None:
             text = (await asyncio.to_thread(input, "> ")).strip()
             if text:
                 await assistant.user_says(text)
-    except (EOFError, KeyboardInterrupt):
+    except (EOFError, asyncio.CancelledError):  # Ende der Eingabe bzw. Strg+C
         pass
     finally:
+        # Ein zweites Strg+C (z.B. von `uv run` weitergereicht) soll das Aufräumen nicht stören
+        signal.signal(signal.SIGINT, signal.SIG_IGN)
         await assistant.shutdown()
 
 
@@ -43,7 +46,10 @@ def run() -> None:
     logging.getLogger("deepagents.middleware._video").setLevel(logging.ERROR)
     parser = argparse.ArgumentParser(description="Sprachassistent mit Voice- und Task-Agent")
     parser.add_argument("--no-audio", action="store_true", help="Text tippen statt sprechen, Ausgabe nur auf der Konsole")
-    asyncio.run(main(parser.parse_args().no_audio))
+    try:
+        asyncio.run(main(parser.parse_args().no_audio))
+    except KeyboardInterrupt:  # asyncio.run meldet Strg+C nach dem Aufräumen so zurück
+        print("\nTschüss!")
 
 
 if __name__ == "__main__":

@@ -1,6 +1,7 @@
 """Lokale Sprach-Ein- und -Ausgabe: RealtimeSTT (faster-whisper) und Piper."""
 
 import asyncio
+import logging
 import os
 import re
 from pathlib import Path
@@ -16,6 +17,7 @@ async def listen(assistant) -> None:
     """
     from RealtimeSTT import AudioToTextRecorder
 
+    print("Lade Spracherkennung (beim ersten Start werden die Whisper-Modelle heruntergeladen) ...")
     loop = asyncio.get_running_loop()
     recorder = AudioToTextRecorder(
         model=os.getenv("STT_MODEL", "small"),
@@ -43,11 +45,14 @@ async def listen(assistant) -> None:
                 turns.add(turn)
                 turn.add_done_callback(turns.discard)
     finally:
+        # RealtimeSTT loggt beim Herunterfahren einen harmlosen Fehler samt Traceback
+        logging.getLogger("realtimestt").setLevel(logging.CRITICAL)
         recorder.shutdown()
 
 
 class PiperTTS:
     def __init__(self):
+        print("Lade Sprachausgabe ...")
         from piper import PiperVoice
         from piper.download_voices import download_voice
 
