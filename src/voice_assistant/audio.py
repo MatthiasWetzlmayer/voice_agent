@@ -31,6 +31,7 @@ async def listen(assistant) -> None:
         on_recording_start=lambda: loop.call_soon_threadsafe(assistant.user_idle.clear),
         post_speech_silence_duration=0.7,
         spinner=False,
+        no_log_file=True,  # sonst schreibt RealtimeSTT realtimesst.log in den aktuellen Ordner
     )
     assistant.on_speaking = lambda speaking: recorder.set_microphone(not speaking)
     turns = set()  # Referenzen halten, damit laufende Gesprächsrunden nicht eingesammelt werden
