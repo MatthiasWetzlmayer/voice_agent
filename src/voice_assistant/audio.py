@@ -4,10 +4,27 @@ import asyncio
 import logging
 import os
 import re
+import threading
 import time
 from array import array
 from pathlib import Path
 from typing import AsyncIterator
+
+
+def ensure_whisper_model(size: str) -> None:
+    """Lädt ein Whisper-Modell vorab im Hauptprozess herunter, falls es noch fehlt.
+
+    Sonst lädt RealtimeSTT das Hauptmodell still in einem Kindprozess: ohne Fortschritt, und
+    ein Fehler dort lässt das Programm einfach hängen.
+    """
+    from faster_whisper import download_model
+
+    try:
+        download_model(size, local_files_only=True)
+    except Exception:
+        print(f"Lade Whisper-Modell '{size}' herunter (nur beim ersten Start, kann einige Minuten dauern) ...", flush=True)
+        download_model(size)
+        print(f"Whisper-Modell '{size}' ist geladen.")
 
 
 async def listen(assistant, debug: bool = False) -> None:
@@ -42,11 +59,18 @@ async def listen(assistant, debug: bool = False) -> None:
         show("Sprache erkannt, Aufnahme läuft")
         loop.call_soon_threadsafe(assistant.user_idle.clear)
 
-    print("Lade Spracherkennung (beim ersten Start werden die Whisper-Modelle heruntergeladen) ...")
+    model, realtime_model = os.getenv("STT_MODEL", "small"), os.getenv("STT_REALTIME_MODEL", "tiny")
+    for size in (model, realtime_model):
+        await asyncio.to_thread(ensure_whisper_model, size)
+    print("Lade Spracherkennung ...")
     loop = asyncio.get_running_loop()
+    stuck = threading.Timer(60, lambda: print(
+        "Die Spracherkennung startet seit 60 s nicht. Mit --debug starten und die Ausgabe prüfen.", flush=True))
+    stuck.daemon = True  # darf das Beenden nicht aufhalten
+    stuck.start()
     recorder = AudioToTextRecorder(
-        model=os.getenv("STT_MODEL", "small"),
-        realtime_model_type=os.getenv("STT_REALTIME_MODEL", "tiny"),
+        model=model,
+        realtime_model_type=realtime_model,
         language="de",
         device="cpu",  # faster-whisper kann auf dem Mac die GPU nicht nutzen
         compute_type="int8",
@@ -62,6 +86,8 @@ async def listen(assistant, debug: bool = False) -> None:
         level=logging.DEBUG if debug else logging.WARNING,
         no_log_file=True,  # sonst schreibt RealtimeSTT realtimesst.log in den aktuellen Ordner
     )
+    stuck.cancel()
+
     def on_speaking(speaking: bool) -> None:
         show("Mikrofon aus (Assistent spricht)" if speaking else "Mikrofon an")
         recorder.set_microphone(not speaking)

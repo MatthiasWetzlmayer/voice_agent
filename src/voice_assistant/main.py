@@ -5,6 +5,7 @@ import asyncio
 import logging
 import os
 import signal
+import threading
 
 from dotenv import load_dotenv
 
@@ -13,21 +14,27 @@ from .assistant import Assistant
 from .audio import ConsoleTTS, PiperTTS, listen
 
 
-def stop_on_first_ctrl_c(task: asyncio.Task) -> None:
-    """Strg+C bricht den Haupt-Task genau einmal ab, weitere Signale werden ignoriert.
+def stop_on_ctrl_c(task: asyncio.Task) -> None:
+    """Strg+C bricht den Haupt-Task ab, auch während langer Ladephasen.
 
-    `uv run` reicht Strg+C zusätzlich weiter, ein zweites Signal würde sonst das Aufräumen stören.
+    Weitere Signale werden ignoriert (`uv run` reicht Strg+C doppelt weiter). Steckt das
+    Programm gerade in einem langen blockierenden Aufruf oder hängt das Aufräumen, wird
+    nach 5 Sekunden hart beendet.
     """
+    loop = asyncio.get_running_loop()
 
-    def stop() -> None:
+    def handler(signum, frame) -> None:
         signal.signal(signal.SIGINT, signal.SIG_IGN)
-        task.cancel()
+        loop.call_soon_threadsafe(task.cancel)
+        force = threading.Timer(5, lambda: (print("\nTschüss!", flush=True), os._exit(130)))
+        force.daemon = True
+        force.start()
 
-    asyncio.get_running_loop().add_signal_handler(signal.SIGINT, stop)
+    signal.signal(signal.SIGINT, handler)
 
 
 async def main(no_audio: bool, debug: bool) -> None:
-    stop_on_first_ctrl_c(asyncio.current_task())
+    stop_on_ctrl_c(asyncio.current_task())
     voice_spec = os.getenv("VOICE_MODEL", "ollama:qwen3:4b")
     task_spec = os.getenv("TASK_MODEL", "ollama:qwen3:4b")
     assistant = Assistant(
