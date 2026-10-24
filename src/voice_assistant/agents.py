@@ -48,16 +48,26 @@ async def dummy_action(description: str) -> str:
     return f"Aktion ausgeführt: {description}"
 
 
-def make_model(spec: str, thinking: bool = False):
-    """Modell aus "anbieter:name", z.B. "ollama:qwen3:8b" oder "openai:gpt-5-mini"."""
+def make_model(spec: str):
+    """Modell aus "anbieter:name", z.B. "ollama:qwen3:4b" oder "openai:gpt-5-mini"."""
     if spec.startswith("ollama:"):
+        import ollama
         from langchain_ollama import ChatOllama
 
-        # reasoning explizit setzen, sonst landen <think>-Blöcke im vorgelesenen Text.
+        name = spec.removeprefix("ollama:")
+        try:
+            capabilities = ollama.Client().show(name).capabilities or []
+        except ollama.ResponseError as e:
+            raise SystemExit(f"Ollama-Modell '{name}' nicht verfügbar ({e.error}). Erst: ollama pull {name}")
+        except ConnectionError:
+            raise SystemExit("Ollama läuft nicht. Bitte die Ollama-App starten (oder: ollama serve).")
+        # Kann das Modell denken, trennt Ollama mit reasoning=True das Denken von der Antwort ab.
+        # reasoning=False genügt nicht: reine Thinking-Modelle (z.B. Qwen3-Thinking-2507) denken
+        # trotzdem, und der Denktext würde vorgelesen.
         # num_ctx: Ollamas Standard ist zu klein für den DeepAgent-Prompt (ca. 3.500 Tokens plus
         # Verlauf). Für beide Agenten gleich lassen, sonst lädt Ollama das Modell bei jedem
         # Wechsel neu.
-        return ChatOllama(model=spec.removeprefix("ollama:"), reasoning=thinking, num_ctx=16384)
+        return ChatOllama(model=name, reasoning=True if "thinking" in capabilities else None, num_ctx=16384)
     return init_chat_model(spec)
 
 

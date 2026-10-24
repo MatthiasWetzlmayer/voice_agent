@@ -39,7 +39,7 @@ async def main(no_audio: bool, debug: bool) -> None:
     task_spec = os.getenv("TASK_MODEL", "ollama:qwen3:4b")
     assistant = Assistant(
         make_model(voice_spec),
-        make_model(task_spec, thinking=True),
+        make_model(task_spec),
         ConsoleTTS() if no_audio else PiperTTS(),
         provider=voice_spec.split(":")[0],
     )
