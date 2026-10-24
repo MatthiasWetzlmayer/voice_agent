@@ -1,0 +1,36 @@
+[project]
+name = "voice-assistant"
+version = "0.1.0"
+description = "Prototyp: Voice-Agent (LangChain) + Task-Agent (DeepAgents) mit bidirektionaler Kommunikation"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "langchain>=1.0",
+    "langchain-openai>=1.0",
+    "langgraph>=1.0",
+    "deepagents>=0.2",
+    "openai>=1.50",
+    "python-dotenv>=1.0",
+]
+
+[project.optional-dependencies]
+audio = ["sounddevice>=0.4"]
+anthropic = ["langchain-anthropic>=1.0"]
+google = ["langchain-google-genai>=2.0"]
+
+[project.scripts]
+voice-assistant = "voice_assistant.main:run"
+
+[dependency-groups]
+dev = ["pytest>=8", "pytest-asyncio>=0.23"]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/voice_assistant"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
