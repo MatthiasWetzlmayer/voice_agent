@@ -39,6 +39,8 @@ def run() -> None:
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(name)-17s %(message)s", datefmt="%H:%M:%S")
     for noisy in ("httpx", "faster_whisper"):
         logging.getLogger(noisy).setLevel(logging.WARNING)
+    # deepagents loggt eine harmlose Warnung samt Traceback, wenn das optionale Video-Extra fehlt
+    logging.getLogger("deepagents.middleware._video").setLevel(logging.ERROR)
     parser = argparse.ArgumentParser(description="Sprachassistent mit Voice- und Task-Agent")
     parser.add_argument("--no-audio", action="store_true", help="Text tippen statt sprechen, Ausgabe nur auf der Konsole")
     asyncio.run(main(parser.parse_args().no_audio))
