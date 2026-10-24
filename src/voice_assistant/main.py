@@ -13,7 +13,21 @@ from .assistant import Assistant
 from .audio import ConsoleTTS, PiperTTS, listen
 
 
-async def main(no_audio: bool) -> None:
+def stop_on_first_ctrl_c(task: asyncio.Task) -> None:
+    """Strg+C bricht den Haupt-Task genau einmal ab, weitere Signale werden ignoriert.
+
+    `uv run` reicht Strg+C zusätzlich weiter, ein zweites Signal würde sonst das Aufräumen stören.
+    """
+
+    def stop() -> None:
+        signal.signal(signal.SIGINT, signal.SIG_IGN)
+        task.cancel()
+
+    asyncio.get_running_loop().add_signal_handler(signal.SIGINT, stop)
+
+
+async def main(no_audio: bool, debug: bool) -> None:
+    stop_on_first_ctrl_c(asyncio.current_task())
     voice_spec = os.getenv("VOICE_MODEL", "ollama:qwen3:4b")
     task_spec = os.getenv("TASK_MODEL", "ollama:qwen3:4b")
     assistant = Assistant(
@@ -24,16 +38,14 @@ async def main(no_audio: bool) -> None:
     )
     try:
         if not no_audio:
-            await listen(assistant)
+            await listen(assistant, debug)
         while True:  # Textmodus
             text = (await asyncio.to_thread(input, "> ")).strip()
             if text:
                 await assistant.user_says(text)
     except (EOFError, asyncio.CancelledError):  # Ende der Eingabe bzw. Strg+C
-        pass
+        print("\nTschüss!")
     finally:
-        # Ein zweites Strg+C (z.B. von `uv run` weitergereicht) soll das Aufräumen nicht stören
-        signal.signal(signal.SIGINT, signal.SIG_IGN)
         await assistant.shutdown()
 
 
@@ -46,10 +58,9 @@ def run() -> None:
     logging.getLogger("deepagents.middleware._video").setLevel(logging.ERROR)
     parser = argparse.ArgumentParser(description="Sprachassistent mit Voice- und Task-Agent")
     parser.add_argument("--no-audio", action="store_true", help="Text tippen statt sprechen, Ausgabe nur auf der Konsole")
-    try:
-        asyncio.run(main(parser.parse_args().no_audio))
-    except KeyboardInterrupt:  # asyncio.run meldet Strg+C nach dem Aufräumen so zurück
-        print("\nTschüss!")
+    parser.add_argument("--debug", action="store_true", help="Mikrofon-Pegel und alle Erkennungsschritte anzeigen")
+    args = parser.parse_args()
+    asyncio.run(main(args.no_audio, args.debug))
 
 
 if __name__ == "__main__":

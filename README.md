@@ -22,6 +22,7 @@ cp .env.example .env
 uv sync                         # Python 3.12, RealtimeSTT unterstützt noch kein 3.13
 uv run voice-assistant          # sprechen
 uv run voice-assistant --no-audio   # tippen statt sprechen
+uv run voice-assistant --debug      # Mikrofon-Pegel und jeden Erkennungsschritt anzeigen
 uv run pytest
 ```
 
