@@ -83,6 +83,10 @@ async def listen(assistant, debug: bool = False) -> None:
                             turn = asyncio.create_task(assistant.user_says(event.transcript.strip()))
                             turns.add(turn)
                             turn.add_done_callback(turns.discard)
+                    elif event.type == "conversation.item.input_audio_transcription.failed":
+                        assistant.user_idle.set()  # sonst warten Benachrichtigungen für immer
+                        e = event.error
+                        print(f"Transkription fehlgeschlagen: {e.message} (code={e.code}, param={e.param})")
                     elif event.type == "error":
                         print(f"Realtime-Fehler: {event.error.message}")
                 print("Verbindung zur Realtime API wurde beendet.")
