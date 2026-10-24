@@ -12,6 +12,7 @@ from dotenv import load_dotenv
 from .agents import make_model
 from .assistant import Assistant
 from .audio import ConsoleTTS, PiperTTS, listen
+from .dashboard import start_dashboard_api
 
 
 def stop_on_ctrl_c(task: asyncio.Task) -> None:
@@ -43,6 +44,8 @@ async def main(no_audio: bool, debug: bool) -> None:
         ConsoleTTS() if no_audio else PiperTTS(),
         provider=voice_spec.split(":")[0],
     )
+    port = int(os.getenv("DASHBOARD_PORT", "8765"))
+    api = start_dashboard_api(assistant, {"voice_model": voice_spec, "task_model": task_spec}, port)
     try:
         if not no_audio:
             await listen(assistant, debug)
@@ -54,6 +57,8 @@ async def main(no_audio: bool, debug: bool) -> None:
         print("\nTschüss!")
     finally:
         await assistant.shutdown()
+        if api:
+            api.shutdown()
 
 
 def run() -> None:

@@ -1,0 +1,136 @@
+/* Farben als Tokens: dunkel ist Standard, hell folgt der Systemeinstellung. */
+:root {
+  --bg: #0d1117;
+  --surface: #161b22;
+  --surface-2: #1c232d;
+  --border: #2a323d;
+  --text: #e6edf3;
+  --muted: #8b949e;
+  --accent: #7c8cff;
+  --running: #58a6ff;
+  --waiting: #e3b341;
+  --done: #3fb950;
+  --failed: #f85149;
+  --cancelled: #8b949e;
+  --radius: 14px;
+  color-scheme: dark;
+  font-family: Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+
+@media (prefers-color-scheme: light) {
+  :root {
+    --bg: #f6f7fb;
+    --surface: #ffffff;
+    --surface-2: #f1f3f8;
+    --border: #e1e5ee;
+    --text: #1b1f24;
+    --muted: #5f6b7a;
+    --accent: #4f5bd5;
+    --running: #1f6feb;
+    --waiting: #b7791f;
+    --done: #1a7f37;
+    --failed: #cf222e;
+    --cancelled: #6e7781;
+    color-scheme: light;
+  }
+}
+
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--text); }
+h1, h2, h3, h4, p { margin: 0; }
+code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.85em; }
+
+.app { max-width: 1200px; margin: 0 auto; padding: 24px 16px 48px; }
+
+.topbar {
+  display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap;
+  margin-bottom: 28px;
+}
+.brand { display: flex; align-items: center; gap: 12px; }
+.logo {
+  display: grid; place-items: center; width: 40px; height: 40px; border-radius: 12px;
+  background: color-mix(in srgb, var(--accent) 18%, transparent); color: var(--accent); font-size: 20px;
+}
+.brand h1 { font-size: 20px; font-weight: 650; letter-spacing: -0.01em; }
+.models { color: var(--muted); font-size: 13px; margin-top: 2px; }
+
+.connection {
+  display: inline-flex; align-items: center; gap: 8px; padding: 6px 12px; border-radius: 999px;
+  font-size: 13px; border: 1px solid var(--border); background: var(--surface);
+}
+.connection::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: currentColor; }
+.connection.online { color: var(--done); }
+.connection.offline { color: var(--failed); }
+
+.content { display: grid; gap: 28px; }
+.panel h2 {
+  font-size: 13px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em;
+  color: var(--muted); margin-bottom: 12px;
+}
+.empty {
+  color: var(--muted); padding: 32px; text-align: center; border: 1px dashed var(--border);
+  border-radius: var(--radius); line-height: 1.6;
+}
+
+/* Übersicht */
+.stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; }
+.stat {
+  display: flex; flex-direction: column; gap: 4px; padding: 16px 18px; border-radius: var(--radius);
+  background: var(--surface); border: 1px solid var(--border); border-top: 3px solid var(--tone);
+}
+.stat-value { font-size: 30px; font-weight: 650; font-variant-numeric: tabular-nums; }
+.stat-label { color: var(--muted); font-size: 13px; }
+
+/* Farbton je Status, wird über --tone an Badges, Kennzahlen und Hinweise weitergegeben */
+.tone-running { --tone: var(--running); }
+.tone-waiting { --tone: var(--waiting); }
+.tone-done { --tone: var(--done); }
+.tone-failed { --tone: var(--failed); }
+.tone-cancelled { --tone: var(--cancelled); }
+
+/* Tasks */
+.task-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 16px; }
+@media (max-width: 420px) { .task-grid { grid-template-columns: 1fr; } }
+.task-card {
+  display: flex; flex-direction: column; gap: 12px; padding: 18px; min-width: 0;
+  background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+}
+.task-head { display: flex; align-items: start; justify-content: space-between; gap: 12px; }
+.task-head h3 { font-size: 16px; font-weight: 600; overflow-wrap: anywhere; }
+.task-meta { color: var(--muted); font-size: 13px; font-variant-numeric: tabular-nums; }
+.task-description { font-size: 14px; line-height: 1.5; color: var(--text); opacity: 0.85; overflow-wrap: anywhere; }
+.task-card h4 { font-size: 12px; font-weight: 600; color: var(--muted); margin-bottom: 6px; }
+
+.badge {
+  flex-shrink: 0; padding: 3px 10px; border-radius: 999px; font-size: 12px; font-weight: 600; white-space: nowrap;
+  color: var(--tone); background: color-mix(in srgb, var(--tone) 15%, transparent);
+}
+.badge.tone-running::before {
+  content: ""; display: inline-block; width: 6px; height: 6px; margin-right: 6px; border-radius: 50%;
+  background: currentColor; vertical-align: middle; animation: pulse 1.4s ease-in-out infinite;
+}
+@keyframes pulse { 50% { opacity: 0.3; } }
+
+.callout {
+  font-size: 14px; line-height: 1.5; padding: 10px 12px; border-radius: 10px; overflow-wrap: anywhere;
+  background: color-mix(in srgb, var(--tone) 10%, transparent); border-left: 3px solid var(--tone);
+}
+.callout strong { display: block; color: var(--tone); font-size: 12px; margin-bottom: 2px; }
+
+.todos, .steps { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; font-size: 13px; }
+.todo { display: flex; align-items: center; gap: 8px; }
+.todo-mark {
+  flex-shrink: 0; width: 12px; height: 12px; border-radius: 50%; border: 2px solid var(--muted);
+}
+.todo-in_progress { font-weight: 600; }
+.todo-in_progress .todo-mark { border-color: var(--running); animation: pulse 1.4s ease-in-out infinite; }
+.todo-completed { color: var(--muted); text-decoration: line-through; }
+.todo-completed .todo-mark { border-color: var(--done); background: var(--done); }
+
+.steps li {
+  display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 8px;
+  padding: 6px 8px; border-radius: 8px; background: var(--surface-2);
+}
+.steps code { color: var(--accent); }
+.step-args { color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.steps time { color: var(--muted); font-size: 12px; font-variant-numeric: tabular-nums; }

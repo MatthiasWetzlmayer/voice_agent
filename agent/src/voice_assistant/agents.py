@@ -5,6 +5,7 @@ import logging
 
 from deepagents import create_deep_agent
 from langchain.agents import create_agent
+from langchain.agents.middleware import TodoListMiddleware
 from langchain.chat_models import init_chat_model
 from langchain.tools import tool
 from langgraph.checkpoint.memory import InMemorySaver
@@ -80,6 +81,8 @@ def create_task_agent(model, store):
         model=model,
         tools=[slow_work, dummy_action],
         system_prompt=TASK_PROMPT,
+        # deepagents bringt write_todos nicht mehr selbst mit; der Plan erscheint im Dashboard
+        middleware=[TodoListMiddleware()],
         interrupt_on={"dummy_action": {"allowed_decisions": ["approve", "reject"]}},
         checkpointer=InMemorySaver(),
         store=store,

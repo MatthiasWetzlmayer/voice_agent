@@ -13,9 +13,23 @@ Man redet einfach drauflos, alles läuft lokal und kostenlos:
 - **Agenten:** Ollama.
 - **Sprachausgabe:** Piper mit deutscher Stimme, satzweise, damit die Antwort früh beginnt.
 
+## Aufbau
+
+```
+agent/   der Sprachassistent (Python), läuft lokal
+ui/      Web-Dashboard (React), zeigt nur an, was der Agent gerade tut
+```
+
+Der Agent stellt seinen Zustand unter `http://127.0.0.1:8765/api/state` bereit (nur lesend,
+nur auf diesem Rechner). Das Dashboard fragt das jede Sekunde ab. Der Agent funktioniert auch
+ohne Dashboard.
+
 ## Start (macOS)
 
+Agent:
+
 ```bash
+cd agent
 brew install portaudio          # für das Mikrofon (PyAudio)
 ollama pull qwen3:4b
 cp .env.example .env
@@ -24,6 +38,14 @@ uv run voice-assistant          # sprechen
 uv run voice-assistant --no-audio   # tippen statt sprechen
 uv run voice-assistant --debug      # Mikrofon-Pegel und jeden Erkennungsschritt anzeigen
 uv run pytest
+```
+
+Dashboard (zweites Terminal, braucht Node.js 22.12 oder neuer):
+
+```bash
+cd ui
+npm install
+npm run dev                     # dann http://localhost:5173 öffnen
 ```
 
 Beim ersten Start werden die Whisper-Modelle und die Piper-Stimme heruntergeladen. Das Terminal
@@ -35,12 +57,21 @@ Speicher auf einem 16-GB-Mac, grob: `qwen3:4b` mit 16k Kontext ca. 5 GB, Whisper
 
 ## Dateien
 
-| Datei          | Inhalt                                                               |
-|----------------|----------------------------------------------------------------------|
-| `agents.py`    | Prompts, Dummy-Tools, Modellauswahl, Erzeugung beider Agenten        |
-| `assistant.py` | Gespräch, Hintergrund-Tasks und die Kommunikation zwischen beiden    |
-| `audio.py`     | Live-Transkription (RealtimeSTT), Sprachausgabe (Piper), Satz-Splitter |
-| `main.py`      | Start                                                                |
+| Datei                    | Inhalt                                                                 |
+|--------------------------|------------------------------------------------------------------------|
+| `agent/.../agents.py`    | Prompts, Dummy-Tools, Modellauswahl, Erzeugung beider Agenten          |
+| `agent/.../assistant.py` | Gespräch, Hintergrund-Tasks, Kommunikation zwischen beiden, `snapshot()` |
+| `agent/.../audio.py`     | Live-Transkription (RealtimeSTT), Sprachausgabe (Piper), Satz-Splitter |
+| `agent/.../dashboard.py` | Datenendpunkt `/api/state` für das Dashboard                          |
+| `agent/.../main.py`      | Start                                                                  |
+| `ui/src/api.ts`          | Datentypen und Abfrage des Agenten                                     |
+| `ui/src/panels/`         | Ansichten des Dashboards, registriert in `panels/index.ts`             |
+
+## Dashboard erweitern
+
+Jede Ansicht ist ein Panel in `ui/src/panels/` und wird in `ui/src/panels/index.ts` eingetragen.
+Braucht ein neues Panel Daten, die es noch nicht gibt: im Agenten in `snapshot()`
+(`assistant.py`) ergänzen und in `ui/src/api.ts` den Typ `AgentState` erweitern.
 
 ## Wie die Agenten miteinander reden
 

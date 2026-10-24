@@ -98,23 +98,48 @@ class Assistant:
     async def _run_task(self, name: str, task: dict, agent_input) -> None:
         config = {"configurable": {"thread_id": task["thread"]}}  # eigener Thread pro Task
         try:
-            await self.task_agent.ainvoke(agent_input, config)
+            async for update in self.task_agent.astream(agent_input, config, stream_mode="updates"):
+                self._track(task, update)
             state = await self.task_agent.aget_state(config)
             if state.interrupts:  # dummy_action wartet auf Freigabe
                 actions = state.interrupts[0].value["action_requests"]
-                task.update(status="wartet auf Antwort", actions=len(actions))
-                question = "; ".join(f"{a['name']}({a['args']})" for a in actions)
-                text = f"Rückfrage von Task '{name}': Darf ich {question} ausführen?"
+                question = "; ".join(a["args"].get("description") or f"{a['name']}({a['args']})" for a in actions)
+                task.update(status="wartet auf Antwort", actions=len(actions), question=question)
+                text = f"Rückfrage von Task '{name}': Darf ich folgende Aktion ausführen: {question}?"
             else:
-                task.update(status="fertig", result=state.values["messages"][-1].text)
+                task.update(status="fertig", result=state.values["messages"][-1].text, finished=time.time())
                 text = f"Task '{name}' ist fertig. Ergebnis: {task['result']}"
         except asyncio.CancelledError:
-            task["status"] = "abgebrochen"  # bestätigt der Voice-Agent selbst in cancel_task
+            task.update(status="abgebrochen", finished=time.time())  # bestätigt der Voice-Agent selbst
             raise
         except Exception as e:
-            task["status"] = "fehlgeschlagen"
+            task.update(status="fehlgeschlagen", error=str(e), finished=time.time())
             text = f"Task '{name}' ist fehlgeschlagen: {e}"
         await self.notify_voice(text)
+
+    @staticmethod
+    def _track(task: dict, update: dict) -> None:
+        """Merkt sich Tool-Aufrufe und To-do-Liste des DeepAgents fürs Dashboard."""
+        for data in update.values():
+            if not isinstance(data, dict):
+                continue
+            if isinstance(data.get("todos"), list):
+                task["todos"] = data["todos"]
+            messages = data.get("messages")
+            for message in messages if isinstance(messages, list) else []:
+                for call in getattr(message, "tool_calls", None) or []:
+                    task["steps"].append({"tool": call["name"], "args": call["args"], "time": time.time()})
+
+    def snapshot(self) -> dict:
+        """Zustand für das Dashboard: nur JSON-fähige Daten, keine internen Objekte."""
+        return {"tasks": [
+            {
+                "id": t["thread"], "name": name, "description": t["description"], "status": t["status"],
+                "started": t["started"], "finished": t.get("finished"), "question": t.get("question"),
+                "result": t.get("result"), "error": t.get("error"), "todos": t["todos"], "steps": t["steps"][-20:],
+            }
+            for name, t in self.tasks.items()
+        ]}
 
     def _tools(self):
         task_log = logging.getLogger("task-agent")
@@ -125,7 +150,8 @@ class Assistant:
             while name in self.tasks:
                 name += " 2"
             task_log.info("starte '%s': %s", name, description)
-            self.tasks[name] = {"status": "läuft", "since": time.monotonic(), "thread": uuid.uuid4().hex}
+            self.tasks[name] = {"status": "läuft", "description": description, "started": time.time(),
+                                "thread": uuid.uuid4().hex, "steps": [], "todos": []}
             self._start(name, {"messages": [HumanMessage(description)]})
             return f"Task '{name}' läuft im Hintergrund."
 
@@ -133,7 +159,7 @@ class Assistant:
         async def list_tasks() -> str:
             """Status aller Tasks."""
             return "\n".join(
-                f"{n}: {t['status']} (seit {time.monotonic() - t['since']:.0f} s)" for n, t in self.tasks.items()
+                f"{n}: {t['status']} (seit {time.time() - t['started']:.0f} s)" for n, t in self.tasks.items()
             ) or "Keine Tasks."
 
         @tool
@@ -144,7 +170,7 @@ class Assistant:
                 return f"Kein laufender Task '{name}'."
             task_log.info("breche '%s' ab", found)
             self.tasks[found]["runner"].cancel()
-            self.tasks[found]["status"] = "abgebrochen"
+            self.tasks[found].update(status="abgebrochen", finished=time.time())
             return f"Task '{found}' wurde abgebrochen."
 
         @tool
@@ -155,7 +181,7 @@ class Assistant:
                 return f"Task '{name}' wartet auf keine Antwort."
             task_log.info("Antwort an '%s': %s %s", found, decision, message)
             answer = {"type": decision, **({"message": message} if decision == "reject" and message else {})}
-            self.tasks[found]["status"] = "läuft"
+            self.tasks[found].update(status="läuft", question=None)
             self._start(found, Command(resume={"decisions": [answer] * self.tasks[found]["actions"]}))
             return f"Antwort an '{found}' weitergegeben."
 

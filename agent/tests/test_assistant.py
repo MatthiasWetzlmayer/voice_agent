@@ -181,3 +181,51 @@ async def test_ollama_gets_notification_as_human_message():
     await a.notify_voice("Task 'X' ist fertig.")
     messages = (await a.voice_agent.aget_state(a.voice_config)).values["messages"]
     assert isinstance(messages[0], HumanMessage) and messages[0].content.startswith("[TASK-BENACHRICHTIGUNG]")
+
+
+async def test_snapshot_for_dashboard():
+    a, tts = make()
+    await a.user_says("Buch mir einen Tisch")
+    await until(lambda: a.tasks["Buchung"]["status"] == "wartet auf Antwort")
+    (task,) = a.snapshot()["tasks"]
+    assert task["name"] == "Buchung" and task["status"] == "wartet auf Antwort"
+    assert task["steps"][0]["tool"] == "dummy_action" and "Tisch buchen" in task["question"]
+    await a.user_says("Ja, mach")
+    await until(lambda: a.tasks["Buchung"]["status"] == "fertig")
+    (task,) = a.snapshot()["tasks"]
+    assert task["question"] is None and "Aktion ausgeführt" in task["result"] and task["finished"] >= task["started"]
+
+
+async def test_dashboard_api_serves_state():
+    import json
+    import urllib.request
+
+    from voice_assistant.dashboard import start_dashboard_api
+
+    a, tts = make()
+    server = start_dashboard_api(a, {"voice_model": "fake"}, port=0)  # Port 0: freien Port wählen
+    try:
+        await a.user_says("Recherchier etwas lang")
+        url = f"http://127.0.0.1:{server.server_address[1]}/api/state"
+        response = await asyncio.to_thread(urllib.request.urlopen, url)
+        state = json.loads(response.read())
+        assert response.headers["Access-Control-Allow-Origin"] == "*"
+        assert state["agent"]["voice_model"] == "fake"
+        assert [t["status"] for t in state["tasks"]] == ["läuft"]
+    finally:
+        server.shutdown()
+        await a.shutdown()
+
+
+async def test_plan_of_deep_agent_appears_in_snapshot():
+    def planning_task(messages):
+        if not any(isinstance(m, ToolMessage) for m in messages):
+            return call("write_todos", todos=[{"content": "Quellen sammeln", "status": "in_progress"}])
+        return AIMessage("Fertig.")
+
+    tts = RecordingTTS()
+    a = Assistant(FakeModel(respond=voice), FakeModel(respond=planning_task), tts, "openai")
+    await a.user_says("Recherchier etwas zu Solar")
+    await until(lambda: a.tasks["Recherche solar"]["status"] == "fertig")
+    (task,) = a.snapshot()["tasks"]
+    assert task["todos"] == [{"content": "Quellen sammeln", "status": "in_progress"}]
