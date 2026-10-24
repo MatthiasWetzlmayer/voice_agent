@@ -1,7 +1,9 @@
-import { useAgentState } from "./api";
-import { panels } from "./panels";
+"use client"; // fragt den Agenten im Browser ab
 
-export function App() {
+import { useAgentState } from "@/lib/api";
+import { panels } from "@/panels";
+
+export function Dashboard() {
   const { state, connected } = useAgentState();
 
   return (

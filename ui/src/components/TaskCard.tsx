@@ -1,5 +1,5 @@
-import { formatDuration, useNow, type Task } from "../api";
-import { StatusBadge } from "./StatusBadge";
+import { formatDuration, useNow, type Task } from "@/lib/api";
+import { StatusBadge } from "@/components/StatusBadge";
 
 function describeArgs(args: Record<string, unknown>): string {
   return Object.values(args)

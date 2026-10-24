@@ -2,8 +2,8 @@ import { useEffect, useState } from "react";
 
 // Spiegelt die Antwort von GET /api/state des Agenten (agent/src/voice_assistant/dashboard.py).
 
-/** Adresse des lokal laufenden Agenten, änderbar über VITE_AGENT_URL in ui/.env. */
-export const AGENT_URL = import.meta.env.VITE_AGENT_URL ?? "http://127.0.0.1:8765";
+/** Adresse des lokal laufenden Agenten, änderbar über NEXT_PUBLIC_AGENT_URL in ui/.env.local. */
+export const AGENT_URL = process.env.NEXT_PUBLIC_AGENT_URL ?? "http://127.0.0.1:8765";
 
 export type TaskStatus = "läuft" | "wartet auf Antwort" | "fertig" | "fehlgeschlagen" | "abgebrochen";
 

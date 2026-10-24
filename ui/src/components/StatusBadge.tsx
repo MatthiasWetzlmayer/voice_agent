@@ -1,4 +1,4 @@
-import type { TaskStatus } from "../api";
+import type { TaskStatus } from "@/lib/api";
 
 const tones: Record<TaskStatus, string> = {
   läuft: "running",

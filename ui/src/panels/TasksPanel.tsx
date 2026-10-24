@@ -1,5 +1,5 @@
-import type { AgentState, Task } from "../api";
-import { TaskCard } from "../components/TaskCard";
+import type { AgentState, Task } from "@/lib/api";
+import { TaskCard } from "@/components/TaskCard";
 
 const active = (task: Task) => task.status === "läuft" || task.status === "wartet auf Antwort";
 

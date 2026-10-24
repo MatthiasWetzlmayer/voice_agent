@@ -1,4 +1,4 @@
-import type { AgentState, TaskStatus } from "../api";
+import type { AgentState, TaskStatus } from "@/lib/api";
 
 const counters: { label: string; statuses: TaskStatus[]; tone: string }[] = [
   { label: "Laufend", statuses: ["läuft"], tone: "running" },
