@@ -12,7 +12,7 @@ from .assistant import Assistant
 from .audio import ConsoleTTS, OpenAITTS, listen
 
 
-async def main(no_audio: bool) -> None:
+async def main(no_audio: bool, debug: bool) -> None:
     voice_spec = os.getenv("VOICE_MODEL", "ollama:qwen3:8b")
     task_spec = os.getenv("TASK_MODEL", "ollama:qwen3:8b")
     assistant = Assistant(
@@ -23,7 +23,7 @@ async def main(no_audio: bool) -> None:
     )
     try:
         if not no_audio:
-            await listen(assistant)
+            await listen(assistant, debug)
         while True:  # Textmodus
             text = (await asyncio.to_thread(input, "> ")).strip()
             if text:
@@ -41,7 +41,9 @@ def run() -> None:
         logging.getLogger(noisy).setLevel(logging.WARNING)
     parser = argparse.ArgumentParser(description="Sprachassistent mit Voice- und Task-Agent")
     parser.add_argument("--no-audio", action="store_true", help="Text tippen statt sprechen, Ausgabe nur auf der Konsole")
-    asyncio.run(main(parser.parse_args().no_audio))
+    parser.add_argument("--debug", action="store_true", help="Mikrofon-Pegel und alle Realtime-Events anzeigen")
+    args = parser.parse_args()
+    asyncio.run(main(args.no_audio, args.debug))
 
 
 if __name__ == "__main__":

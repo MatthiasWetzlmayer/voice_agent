@@ -4,6 +4,8 @@ import asyncio
 import base64
 import os
 import re
+import time
+from array import array
 from typing import AsyncIterator
 
 from openai import AsyncOpenAI
@@ -11,7 +13,7 @@ from openai import AsyncOpenAI
 SAMPLE_RATE = 24_000  # Realtime-Eingabe und TTS-PCM nutzen beide 24 kHz, 16 bit, mono
 
 
-async def listen(assistant) -> None:
+async def listen(assistant, debug: bool = False) -> None:
     """Hört dauerhaft zu, zeigt die Live-Transkription und gibt fertige Sätze an den Agenten.
 
     Das Mikrofon streamt laufend zur Realtime API (Transkriptions-Session). Der Server erkennt
@@ -27,6 +29,8 @@ async def listen(assistant) -> None:
         callback=lambda data, *_: loop.call_soon_threadsafe(mic.put_nowait, bytes(data)),
     )
 
+    print(f"Mikrofon: {sd.query_devices(kind='input')['name']}")
+
     async with AsyncOpenAI().realtime.connect(extra_query={"intent": "transcription"}) as conn:
         await conn.session.update(session={
             "type": "transcription",
@@ -38,19 +42,38 @@ async def listen(assistant) -> None:
         })
 
         async def send_mic():
+            last_sound, last_report = time.monotonic(), 0.0
             while True:
                 chunk = await mic.get()
+                level = max(map(abs, array("h", chunk)), default=0)
+                now = time.monotonic()
+                if level > 500:
+                    last_sound = now
+                elif now - last_sound > 5:
+                    print("Warnung: Das Mikrofon liefert seit 5 s nur Stille (Eingabegerät/Berechtigung prüfen).")
+                    last_sound = now
+                if debug and now - last_report > 1:
+                    print(f"  [debug] Mikrofon-Pegel {level}")
+                    last_report = now
                 if not assistant.speaking:
                     await conn.input_audio_buffer.append(audio=base64.b64encode(chunk).decode())
 
+        def sender_done(task: asyncio.Task) -> None:
+            if not task.cancelled() and task.exception():
+                print(f"Fehler beim Senden des Mikrofons: {task.exception()!r}")
+
         sender = asyncio.create_task(send_mic())
+        sender.add_done_callback(sender_done)
         turns = set()  # Referenzen halten, damit laufende Gesprächsrunden nicht eingesammelt werden
         with stream:
             print("Ich höre zu ... (Strg+C beendet)")
             try:
                 async for event in conn:
+                    if debug and not event.type.endswith(".delta"):
+                        print(f"  [debug] Event: {event.type}")
                     if event.type == "input_audio_buffer.speech_started":
                         assistant.user_idle.clear()  # Benachrichtigungen warten
+                        print("  (höre dich ...)")
                     elif event.type == "conversation.item.input_audio_transcription.delta":
                         print(event.delta or "", end="", flush=True)  # Live-Transkription
                     elif event.type == "conversation.item.input_audio_transcription.completed":
@@ -62,6 +85,7 @@ async def listen(assistant) -> None:
                             turn.add_done_callback(turns.discard)
                     elif event.type == "error":
                         print(f"Realtime-Fehler: {event.error.message}")
+                print("Verbindung zur Realtime API wurde beendet.")
             finally:
                 sender.cancel()
 
